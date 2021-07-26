@@ -1,0 +1,2 @@
+# LPWAN_Current_Probe_FW_RTOS
+FW for STM32F767VIT with RTOS CMSIS 2.0
