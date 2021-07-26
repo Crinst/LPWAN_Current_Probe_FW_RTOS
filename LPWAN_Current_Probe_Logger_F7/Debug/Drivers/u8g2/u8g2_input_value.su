@@ -1,0 +1,3 @@
+u8g2_input_value.c:46:9:u8g2_UserInterfaceInputValue	48	static
+u8g2_input_value.c:155:10:u8g2_UserInterfaceInputValue32	48	static
+u8g2_input_value.c:336:8:u8g2_UserInterfaceInputValueDouble	80	static

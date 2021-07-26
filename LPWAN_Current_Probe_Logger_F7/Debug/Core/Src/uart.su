@@ -1,0 +1,13 @@
+uart.c:38:6:UARTTXInit	8	static
+uart.c:43:6:UARTAddToTxBuff	16	static
+uart.c:48:6:UARTAddToTxBuff2	16	static
+uart.c:54:13:UARTTxData	16	static
+uart.c:63:13:UARTTxData2	16	static
+uart.c:72:6:UARTTxComplete	8	static
+uart.c:80:6:UARTTxComplete2	8	static
+uart.c:89:6:HAL_UART_TxCpltCallback	16	static
+uart.c:121:6:UARTRXInit	8	static
+uart.c:130:6:UARTRxComplete	16	static
+uart.c:146:6:HAL_UART_RxCpltCallback	16	static
+uart.c:157:9:UART_RX_Read	16	static
+uart.c:163:10:UART_RX_AVAILABLE_BYTE	8	static

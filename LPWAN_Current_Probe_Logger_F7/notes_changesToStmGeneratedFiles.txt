@@ -1,0 +1,47 @@
+Here are things needed to be changeds in order to function correctly.
+Some things are changed to default values after re-generating CubeMX project
+
+1)	for RTOS USB HOST stack running correctly change this, see issue here [https://community.st.com/s/question/0D50X0000B2BsPX/usb-host-library-in-rtosmode]
+	go to USB_HOST --> Target --> usbh_conf.h and change #define USBH_USE_OS from 1U to 0U (disable)
+	you need to then define your own thread with  MX_USB_HOST_Process(); running in infinite while cycle
+	
+	/*
+ 	* Background task
+ 	*/
+	void MX_USB_HOST_Process(void)
+	{
+  	/* USB Host Background task */
+  		USBH_Process(&hUsbHostFS);
+	}
+	
+	
+	
+2)	USBH VBUS Drive logic
+	used USB VBUS driver enables USB-5V for gpio SET, disables for gpio RESET
+	so you need to change logic
+	go to USB_HOST --> Targer --> usbh_platform.c and change logic to this
+	
+	if(state == 0)
+  	{
+    	/* Drive high Charge pump */
+    	data = GPIO_PIN_RESET;
+  	}
+  	else
+  	{
+    	/* Drive low Charge pump */
+    	data = GPIO_PIN_SET;
+  	}
+  	
+  	
+3)	SPI slave DMA rx clp callback BSY flag errors sometimes
+	comment this parts of code in SPI_EndRxTxTransaction function located in stm32f7xx_hal_spi.c
+	this fix should force SPI slave control to HW NSS control, so end of transmission will be based on Clk and CS
+	
+	/* Control the BSY flag */
+  	/*
+  	if (SPI_WaitFlagStateUntilTimeout(hspi, SPI_FLAG_BSY, RESET, Timeout, Tickstart) != HAL_OK)
+  	{
+    	SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_FLAG);
+    	return HAL_TIMEOUT;
+  	}
+  	*/
