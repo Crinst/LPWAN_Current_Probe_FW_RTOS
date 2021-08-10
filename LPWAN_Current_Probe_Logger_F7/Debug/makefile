@@ -84,8 +84,8 @@ all: main-build
 main-build: LPWAN_Current_Probe_Logger_F7.elf secondary-outputs
 
 # Tool invocations
-LPWAN_Current_Probe_Logger_F7.elf: $(OBJS) $(USER_OBJS) D:\Disk\ Google\DP\05_SW\STM32_CubeIDE\LPWAN_Current_Probe_Logger_F7\STM32F767VITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "LPWAN_Current_Probe_Logger_F7.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"D:\Disk Google\DP\05_SW\STM32_CubeIDE\LPWAN_Current_Probe_Logger_F7\STM32F767VITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="LPWAN_Current_Probe_Logger_F7.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+LPWAN_Current_Probe_Logger_F7.elf: $(OBJS) $(USER_OBJS) C:\GIT\LPWAN_Current_Probe\01_SW\LPWAN_Current_Probe_FW_RTOS\LPWAN_Current_Probe_FW_RTOS\LPWAN_Current_Probe_Logger_F7\STM32F767VITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "LPWAN_Current_Probe_Logger_F7.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\GIT\LPWAN_Current_Probe\01_SW\LPWAN_Current_Probe_FW_RTOS\LPWAN_Current_Probe_FW_RTOS\LPWAN_Current_Probe_Logger_F7\STM32F767VITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="LPWAN_Current_Probe_Logger_F7.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

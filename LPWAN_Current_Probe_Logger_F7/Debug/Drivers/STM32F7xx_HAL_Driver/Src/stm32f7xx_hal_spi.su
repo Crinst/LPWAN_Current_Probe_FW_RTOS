@@ -49,8 +49,8 @@ stm32f7xx_hal_spi.c:3895:26:SPI_WaitFlagStateUntilTimeout	40	static
 stm32f7xx_hal_spi.c:3964:26:SPI_WaitFifoStateUntilTimeout	40	static
 stm32f7xx_hal_spi.c:4040:26:SPI_EndRxTransaction	32	static
 stm32f7xx_hal_spi.c:4076:26:SPI_EndRxTxTransaction	32	static
-stm32f7xx_hal_spi.c:4108:13:SPI_CloseRxTx_ISR	24	static
-stm32f7xx_hal_spi.c:4185:13:SPI_CloseRx_ISR	16	static
-stm32f7xx_hal_spi.c:4242:13:SPI_CloseTx_ISR	24	static
-stm32f7xx_hal_spi.c:4291:13:SPI_AbortRx_ISR	32	static
-stm32f7xx_hal_spi.c:4335:13:SPI_AbortTx_ISR	32	static
+stm32f7xx_hal_spi.c:4110:13:SPI_CloseRxTx_ISR	24	static
+stm32f7xx_hal_spi.c:4187:13:SPI_CloseRx_ISR	16	static
+stm32f7xx_hal_spi.c:4244:13:SPI_CloseTx_ISR	24	static
+stm32f7xx_hal_spi.c:4293:13:SPI_AbortRx_ISR	32	static
+stm32f7xx_hal_spi.c:4337:13:SPI_AbortTx_ISR	32	static

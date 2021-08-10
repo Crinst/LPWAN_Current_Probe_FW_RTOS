@@ -173,10 +173,13 @@ void Error_Handler(void);
 #define LED_PORT			LED_RED_GPIO_Port
 #define LED_PIN				LED_RED_Pin
 
+// status indication LED
 #define LED_GREEN_PORT		LED_GREEN_GPIO_Port
 #define LED_GREEN_PIN		LED_GREEN_Pin
+// measure LED
 #define LED_BLUE_PORT		LED_BLUE_GPIO_Port
 #define LED_BLUE_PIN		LED_BLUE_Pin
+// power source status LED
 #define LED_RED_PORT		LED_RED_GPIO_Port
 #define LED_RED_PIN			LED_RED_Pin
 
@@ -189,6 +192,16 @@ void Error_Handler(void);
 
 #define USB_OTG_POWER_EN_PORT			USB_OTG_FS_VBUS_GPIO_Port
 #define USB_OTG_POWER_EN_PIN			USB_OTG_FS_VBUS_Pin
+
+// HW indicaiton to initiate SPI data transfer from FPGA TO MCU
+#define FPGA_RDY_PIN		PA3_Pin
+#define FPGA_RDY_PORT		PA3_GPIO_Port
+
+// HW indication which measuring range to use
+#define RANGE_SEL_1_PORT	PC2_GPIO_Port
+#define RANGE_SEL_1_PIN		PC2_Pin
+#define RANGE_SEL_2_PORT	PC3_GPIO_Port
+#define RANGE_SEL_2_PIN		PC3_Pin
 
 /////// ADC ADS8691  ////////////
 //INPUT COMMAND WORD AND REGISTER WRITE OPERATION

@@ -34,7 +34,7 @@ Some things are changed to default values after re-generating CubeMX project
   	
   	
 3)	SPI slave DMA rx clp callback BSY flag errors sometimes
-	comment this parts of code in SPI_EndRxTxTransaction function located in stm32f7xx_hal_spi.c
+	comment this parts of code in SPI_EndRxTxTransaction function located in Drivers --> STM32F7xx_HAL_Driver --> Src --> stm32f7xx_hal_spi.c
 	this fix should force SPI slave control to HW NSS control, so end of transmission will be based on Clk and CS
 	
 	/* Control the BSY flag */

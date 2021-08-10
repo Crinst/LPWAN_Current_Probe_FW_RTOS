@@ -99,7 +99,7 @@ const osThreadAttr_t myTaskUSB_attributes = {
 osThreadId_t myTaskInputBuffHandle;
 const osThreadAttr_t myTaskInputBuff_attributes = {
   .name = "myTaskInputBuff",
-  .stack_size = 256 * 4,
+  .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityAboveNormal,
 };
 /* Definitions for myTaskEthernet */
@@ -230,8 +230,8 @@ char USBpath[4], SDpath[4]; /* Flash disk and SD card logical drives paths */
 uint8_t workBuffer[2*_MAX_SS];
 
 FRESULT resUSB, resSD;                                   /* FatFs function common result codes */
-uint32_t byteswrittenUSB, byteswrittenSD;                /* File write counts */
-uint32_t bytesreadUSB, bytesreadSD;                      /* File read counts */
+uint32_t bytesWrittenUSB, bytesWrittenSD;                /* File write counts */
+uint32_t bytesReadUSB, bytesReadSD;                      /* File read counts */
 uint8_t wtext[] = "This is STM32 working with FatFs"; /* File write buffer */
 uint8_t rtextUSB[512], rtextSD[512];                     /* File read buffers */
 
@@ -355,6 +355,37 @@ uint8_t i2cDeviceAddressOLED = (0x3F << 1);		// I2C OLED address eq. 0x78 withou
 
 
 
+uint8_t spiTxBuffer [201];
+uint8_t spiRxBuffer [201];
+
+
+HAL_SPI_StateTypeDef retValue;
+HAL_SPI_StateTypeDef retValueSPI;
+
+uint32_t spiErrorValue = 0;
+
+#define RB_INPUT_SIZE 131072 //4096
+#define RB_OUTPUT_SIZE 8192
+
+// char buffer for ring buffer with capacity for up to 102 transmission=10ms
+uint8_t inputBuffer [RB_INPUT_SIZE];
+
+// with formatted data in string for output media etc flash, sd, uart
+uint8_t	outputFormatterBuffer [RB_OUTPUT_SIZE];
+
+ringbuff_t inputBuffer_RB;
+ringbuff_t outputBuffer_RB;
+
+uint32_t spiCounter = 0;
+uint32_t spiCounterEnd = 0;
+
+
+uint32_t errorCount = 0;
+uint32_t okCount = 0;
+
+
+#define SPI_PACKET_SIZE 120
+
 
 /* USER CODE END PV */
 
@@ -393,70 +424,87 @@ void MX_USB_HOST_Process(void);
 
 
 
-
-
-//void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi){
 void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
 
-	isWaitingForData = 0;
+	spiCounter++;
+
+	//HAL_GPIO_WritePin(LED_GREEN_PORT, LED_GREEN_PIN, GPIO_PIN_RESET);
+
+	//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 40);
+
+
+	// add received data to input ring buffer for addition processing
+	ringbuff_write(&inputBuffer_RB, spiRxBuffer, SPI_PACKET_SIZE);
+
+
+	//HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_RESET);
+	retValueSPI = HAL_SPI_TransmitReceive_DMA(&hspi4, spiTxBuffer, spiRxBuffer, SPI_PACKET_SIZE);
+
+
+	spiCounterEnd++;
+
+
+	//HAL_GPIO_WritePin(LED_GREEN_PORT, LED_GREEN_PIN, GPIO_PIN_SET);
+
+	//HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+	//HAL_GPIO_WritePin(LED_GREEN_PORT, LED_GREEN_PIN, GPIO_PIN_RESET);
+
+	//sprintf(buffer, "[0]: %d, [1]: %d, [2]: %d, [3]: %d\n", spiRxBuffer[0], spiRxBuffer[1], spiRxBuffer[2], spiRxBuffer[3]);
+	//send_uart(buffer);
 
 }
 
-/*
-void BSP_SD_WriteCpltCallback(void){
+
+void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi){
+
+	HAL_GPIO_WritePin(FPGA_RDY_PORT, FPGA_RDY_PIN, GPIO_PIN_RESET);
+	//HAL_Delay(1);
+
+	retValue = HAL_SPI_GetState(&hspi4);
 
 
-	isReadyForNext = 1;
+	errorCount++;
+
+	// 4 - OVR=overrun error, 16 - DMA error
+	spiErrorValue = HAL_SPI_GetError(&hspi4);
+
+	//HAL_SPI_DMAStop(&hspi3);
+	//HAL_SPI_Abort(&hspi3);
+
+	send_uart("SPI Error callback\n");
+	sprintf(buffer, "SPI ERROR: %d\n", spiErrorValue);
+	send_uart(buffer);
+
+	//retValue = HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
+
+	if(retValue == HAL_SPI_STATE_BUSY_RX || retValue == HAL_SPI_STATE_BUSY_TX || retValue == HAL_SPI_STATE_BUSY_TX_RX || retValue == HAL_SPI_STATE_BUSY)
+		send_uart("SPI transfer running\n");
+	else{
+		if(retValue == HAL_SPI_STATE_READY){
+			send_uart("SPI transfer not running - ready\n");
+			//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
+		}
+		if(retValue == HAL_SPI_STATE_RESET){
+			send_uart("SPI transfer not running - reset\n");
+			//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
+		}
+		if(retValue == HAL_SPI_STATE_ERROR){
+			send_uart("SPI transfer not running - error\n");
+			//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
+		}
+		if(retValue == HAL_SPI_STATE_ABORT){
+			send_uart("SPI transfer not running - abort\n");
+			//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
+		}
+
+		HAL_GPIO_WritePin(LED_GREEN_PORT, LED_GREEN_PIN, GPIO_PIN_SET);
+		HAL_SPI_TransmitReceive_DMA(&hspi4, spiTxBuffer, spiRxBuffer, SPI_PACKET_SIZE);
+		HAL_GPIO_WritePin(FPGA_RDY_PORT, FPGA_RDY_PIN, GPIO_PIN_SET);
+
+	}
+
 
 }
-*/
-
-/*
-void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi){
-
-	isWaitingForData = 0;
-
-}
-
-void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi){
-
-	isWaitingForData = 0;
-
-}
-*/
-
-/*
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
-{
-
-	// DMA
-	//adcValue = adcBuffer;
-	//isAdcDone = 1;
-
-
-	//interrupt
-	adcValue = HAL_ADC_GetValue(&hadc1);
-
-
-
-  //If continuousconversion mode is DISABLED uncomment below
-  //HAL_ADC_Start_IT (&hadc1);
-}
-*/
-
-/*
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
-
-	isReadyForNext = 1;
-
-}
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
-
-	isWaitingForData = 0;
-
-}*/
-
 
 
 // user button instrupt
@@ -571,6 +619,29 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 	}
 
+
+}
+
+
+
+void setMeasuringRange (){
+
+	if (rangeMode == 0){	// NA
+		HAL_GPIO_WritePin(RANGE_SEL_1_PORT, RANGE_SEL_1_PIN, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(RANGE_SEL_2_PORT, RANGE_SEL_2_PIN, GPIO_PIN_SET);
+	}
+	else if (rangeMode == 1){	// UA
+		HAL_GPIO_WritePin(RANGE_SEL_1_PORT, RANGE_SEL_1_PIN, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(RANGE_SEL_2_PORT, RANGE_SEL_2_PIN, GPIO_PIN_RESET);
+	}
+	else if (rangeMode == 2){	// MA
+		HAL_GPIO_WritePin(RANGE_SEL_1_PORT, RANGE_SEL_1_PIN, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(RANGE_SEL_2_PORT, RANGE_SEL_2_PIN, GPIO_PIN_SET);
+	}
+	else{	// AUTO
+		HAL_GPIO_WritePin(RANGE_SEL_1_PORT, RANGE_SEL_1_PIN, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(RANGE_SEL_2_PORT, RANGE_SEL_2_PIN, GPIO_PIN_RESET);
+	}
 
 }
 
@@ -4643,26 +4714,19 @@ void deviceInit(){
 
 	// default setting for ranges
 	// mA range OFF
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_MA_PORT, RANGE_SELECT_PIN_AS_MA,
-			GPIO_PIN_SET);
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_MA_PORT, RANGE_SELECT_PIN_TRANS_MA,
-			GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_MA_PORT, RANGE_SELECT_PIN_AS_MA, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_MA_PORT, RANGE_SELECT_PIN_TRANS_MA, GPIO_PIN_RESET);
 
 	// uA range OFF
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_UA_PORT, RANGE_SELECT_PIN_AS_UA,
-			GPIO_PIN_SET);
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_UA_PORT, RANGE_SELECT_PIN_TRANS_UA,
-			GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_UA_PORT, RANGE_SELECT_PIN_AS_UA, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_UA_PORT, RANGE_SELECT_PIN_TRANS_UA, GPIO_PIN_RESET);
 
 	// nA range ON
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_NA_PORT, RANGE_SELECT_PIN_AS_NA,
-			GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_NA_PORT, RANGE_SELECT_PIN_TRANS_NA,
-			GPIO_PIN_SET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_NA_PORT, RANGE_SELECT_PIN_AS_NA, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_NA_PORT, RANGE_SELECT_PIN_TRANS_NA, GPIO_PIN_SET);
 
 	// GND range ON
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_GND_PORT, RANGE_SELECT_PIN_AS_GND,
-			GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_GND_PORT, RANGE_SELECT_PIN_AS_GND, GPIO_PIN_RESET);
 
 	// set adc conv pin to default/low level
 	HAL_GPIO_WritePin(ADC_CONV_PORT, ADC_CONV_PIN, GPIO_PIN_RESET);
@@ -4671,26 +4735,20 @@ void deviceInit(){
 	currentRange = 2;
 
 	// mA range ON
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_MA_PORT, RANGE_SELECT_PIN_AS_MA,
-			GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_MA_PORT, RANGE_SELECT_PIN_TRANS_MA,
-			GPIO_PIN_SET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_MA_PORT, RANGE_SELECT_PIN_AS_MA, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_MA_PORT, RANGE_SELECT_PIN_TRANS_MA, GPIO_PIN_SET);
 
 	// uA range OFF
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_UA_PORT, RANGE_SELECT_PIN_AS_UA,
-			GPIO_PIN_SET);
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_UA_PORT, RANGE_SELECT_PIN_TRANS_UA,
-			GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_UA_PORT, RANGE_SELECT_PIN_AS_UA, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_UA_PORT, RANGE_SELECT_PIN_TRANS_UA, GPIO_PIN_RESET);
 
 	// nA range OFF
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_NA_PORT, RANGE_SELECT_PIN_AS_NA,
-			GPIO_PIN_SET);
-	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_NA_PORT, RANGE_SELECT_PIN_TRANS_NA,
-			GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_NA_PORT, RANGE_SELECT_PIN_AS_NA, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_NA_PORT, RANGE_SELECT_PIN_TRANS_NA, GPIO_PIN_RESET);
 
 	// USB OTG Power Enable
-	HAL_GPIO_WritePin(USB_OTG_POWER_EN_PORT, USB_OTG_POWER_EN_PIN,
-			GPIO_PIN_SET);
+	send_uart3("USB OTG POWER - ENABLED\n");
+	HAL_GPIO_WritePin(USB_OTG_POWER_EN_PORT, USB_OTG_POWER_EN_PIN, GPIO_PIN_SET);
 	HAL_Delay(1);
 
 	// OLED init
@@ -4702,8 +4760,7 @@ void deviceInit(){
 
 	//u8g2_Setup_sh1106_i2c_128x64_noname_f(&u8g2, U8G2_R0, u8x8_byte_i2c, u8x8_stm32_gpio_and_delay); //[page buffer, size = 256 bytes]  //u8x8_byte_sw_i2c
 	//u8g2_Setup_sh1106_i2c_128x64_noname_f(&u8g2, U8G2_R2, u8x8_byte_i2c, u8x8_stm32_gpio_and_delay); //[page buffer, size = 256 bytes]  //u8x8_byte_sw_i2c // 180 degree rotation
-	u8g2_Setup_st7528_i2c_nhd_c160100_f(&u8g2, U8G2_R2, u8x8_byte_i2c,
-			u8x8_stm32_gpio_and_delay); //[page buffer, size = full page XYZ bytes]  //u8x8_byte_sw_i2c
+	u8g2_Setup_st7528_i2c_nhd_c160100_f(&u8g2, U8G2_R2, u8x8_byte_i2c, u8x8_stm32_gpio_and_delay); //[page buffer, size = full page XYZ bytes]  //u8x8_byte_sw_i2c
 	u8g2_InitDisplay(&u8g2);
 
 	u8g2_SetPowerSave(&u8g2, 0);
@@ -4766,6 +4823,12 @@ void deviceInit(){
 	UARTRXInit();
 	UARTTXInit();
 
+
+	// initialize RB buffers
+	ringbuff_init(&inputBuffer_RB, inputBuffer, RB_INPUT_SIZE);
+	ringbuff_init(&outputBuffer_RB, outputFormatterBuffer, RB_OUTPUT_SIZE);
+
+
 	//HAL_ADC_Start_DMA(&hadc1, &adcBuffer, 1);
 	//HAL_ADC_Start_IT(&hadc1);
 
@@ -4798,7 +4861,7 @@ void deviceInit(){
 	// reset pin
 	HAL_GPIO_WritePin(ADC_RESET_PORT, ADC_RESET_PIN, GPIO_PIN_SET);
 
-	adc_config();
+	//adc_config();
 
 	microDelay(500);
 
@@ -4812,12 +4875,13 @@ void deviceInit(){
 	//u8g2_DrawStr(&u8g2, 0, 15, "Hello World!");
 	//u8g2_DrawCircle(&u8g2, 64, 40, 10, U8G2_DRAW_ALL);
 
+	HAL_RTC_Init(&hrtc);
+
 	// getting time and date for formatting as name of new logged file
 	HAL_RTC_GetTime(&hrtc, &Time, FORMAT_BIN);
 	HAL_RTC_GetDate(&hrtc, &Date, FORMAT_BIN);
 	// file name format "20YYMMDD_HHMM" example "20200120_1022" = 20.1.2020 10:22
-	sprintf(uartBufferTx, "\n%2d%02d%02d_%02d%02d.txt\n", 2000 + Date.Year,
-			Date.Month, Date.Date, Time.Hours, Time.Minutes);
+	sprintf(uartBufferTx, "\n%2d%02d%02d_%02d%02d.txt\n", 2000 + Date.Year, Date.Month, Date.Date, Time.Hours, Time.Minutes);
 
 	send_uart3(uartBufferTx);
 	microDelay(50);
@@ -4928,6 +4992,10 @@ int main(void)
 
   deviceInit();
 
+  // initialize spi transfer buffers
+  for(uint8_t i = 0; i < sizeof(spiTxBuffer); i++)
+	  spiTxBuffer[i] = 0;
+
   HAL_Delay(500);
 
   /* USER CODE END 2 */
@@ -4956,7 +5024,7 @@ int main(void)
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* creation of myTaskUSB */
-  myTaskUSBHandle = osThreadNew(vTaskUSB, NULL, &myTaskUSB_attributes);
+  //myTaskUSBHandle = osThreadNew(vTaskUSB, NULL, &myTaskUSB_attributes);
 
   /* creation of myTaskInputBuff */
   myTaskInputBuffHandle = osThreadNew(vTaskInputBuffer, NULL, &myTaskInputBuff_attributes);
@@ -5854,13 +5922,135 @@ void vTaskInputBuffer(void *argument)
 
 	xLastWakeTime = xTaskGetTickCount();
 
+	send_uart("Task Input Buffer Init\n");
+
+	uint8_t tempBuffer [128];
+
+	uint8_t temp8 = 0;
+
+	uint8_t charBuffer [128];
+
+	uint32_t currentBufferSize = 0;
+
+	double voltage = 0;
+	double currentValue = 0;
+
+	HAL_SPI_TransmitReceive_DMA(&hspi4, spiTxBuffer, spiRxBuffer, SPI_PACKET_SIZE);
+	//HAL_SPI_TransmitReceive(&hspi3, spiTxBuffer, spiRxBuffer, SPI_PACKET_SIZE, 100);
+	//HAL_SPI_TransmitReceive(&hspi3, spiTxBuffer, spiRxBuffer, SPI_PACKET_SIZE, 100);
+	//HAL_SPI_TransmitReceive(&hspi3, spiTxBuffer, spiRxBuffer, SPI_PACKET_SIZE, 100);
+	HAL_GPIO_WritePin(FPGA_RDY_PORT, FPGA_RDY_PIN, GPIO_PIN_SET);
+
+
+	vTaskDelayUntil(&xLastWakeTime, xFrequency/10);
+
+	//ringbuff_reset(&inputBuffer);
+	ringbuff_read(&inputBuffer_RB, tempBuffer, SPI_PACKET_SIZE);
+
+	//HAL_GPIO_WritePin(LED_GREEN_PORT, LED_GREEN_PIN, GPIO_PIN_SET);
+
+	uint32_t temp32 = 0;
+
+	uint16_t displayCounter = 512;
+	uint32_t counterStats = 0;
 
 	/* Infinite loop */
 	for (;;) {
 
+		//send_uart("Task Input Buffer Cycle\n");
+		currentBufferSize = ringbuff_get_full(&inputBuffer_RB);
 
+		if (counterStats >= 1024) {
 
-		vTaskDelayUntil(&xLastWakeTime, xFrequency/10);
+			sprintf(charBuffer, "InBuff S: %d\n", currentBufferSize);
+			send_uart(charBuffer);
+
+			sprintf(charBuffer, "	Cnt OK-NOK-SPIs-SPIe-SPIHal %d-%d-%d-%d-%d\n", okCount, errorCount, spiCounter, spiCounterEnd, retValueSPI);
+			send_uart(charBuffer);
+
+			counterStats = 0;
+
+		}
+
+		counterStats++;
+
+		if (currentBufferSize >= 40) {
+
+			//send_uart("Task Input Buffer Data Ready\n");
+			okCount++;
+
+			// read 4 Bytes = 1 measurement
+			ringbuff_read(&inputBuffer_RB, tempBuffer, 40);
+
+			/*
+			 if (tempBuffer[0] == 4)
+			 voltage = (voltage*0.0195*1000000000);
+			 else if (tempBuffer[0] == 2)
+			 voltage = (voltage*0.0195*1000000);
+			 else if (tempBuffer[0] == 1)
+			 voltage = (voltage*0.0195*1000);
+			 */
+
+			temp32 = 0;
+
+			if (displayCounter >= 25) {
+				temp32 = (tempBuffer[1] << 16) | (tempBuffer[2] << 8) | (tempBuffer[3]);
+				voltage = temp32;
+				voltage = (voltage * 0.0195);
+
+				if ((tempBuffer[0] >> 5) == 2)
+					currentValue = (voltage / 1000000000);
+				else if ((tempBuffer[0] >> 5) == 1)
+					currentValue = (voltage / 1000000);
+				else if ((tempBuffer[0] >> 5) == 0)
+					currentValue = (voltage / 1000);
+				else
+					currentValue = (voltage);
+
+				//sprintf(charBuffer, "	ADC: %d-V: %.2f-C: %6.12f\n", temp32, voltage, currentValue);
+				sprintf(charBuffer, "	ADC: %d-V: %.2f-C: %6.12f-R: %d\n", temp32, voltage, currentValue, (tempBuffer[0] >> 5));
+				//sprintf(charBuffer, "	Received Data %d-%d-%d-%d --- ADC VALUE: %d --- Voltage: %6.2f\n", tempBuffer[0], tempBuffer[1], tempBuffer[2], tempBuffer[3], temp32, voltage);
+				send_uart(charBuffer);
+				displayCounter = 0;
+			}
+
+			displayCounter++;
+
+		} else {
+			//send_uart("Task Input Buffer NO Data\n");
+			retValue = HAL_SPI_GetState(&hspi4);
+
+			if (retValue == HAL_SPI_STATE_BUSY_RX
+					|| retValue == HAL_SPI_STATE_BUSY_TX
+					|| retValue == HAL_SPI_STATE_BUSY_TX_RX
+					|| retValue == HAL_SPI_STATE_BUSY) {
+				//send_uart("SPI transfer running\n");
+			} else {
+				if (retValue == HAL_SPI_STATE_READY) {
+					send_uart("SPI transfer not running - ready\n");
+					//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
+				}
+				if (retValue == HAL_SPI_STATE_RESET) {
+					send_uart("SPI transfer not running - reset\n");
+					//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
+				}
+				if (retValue == HAL_SPI_STATE_ERROR) {
+					send_uart("SPI transfer not running - error\n");
+					//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
+				}
+				if (retValue == HAL_SPI_STATE_ABORT) {
+					send_uart("SPI transfer not running - abort\n");
+					//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
+				}
+
+				HAL_GPIO_WritePin(LED_GREEN_PORT, LED_GREEN_PIN, GPIO_PIN_SET);
+				errorCount++;
+
+			}
+
+			vTaskDelayUntil(&xLastWakeTime, xFrequency / 10);
+
+		}
 
 	}
   /* USER CODE END vTaskInputBuffer */
@@ -5952,6 +6142,8 @@ void vTaskLcd(void *argument)
 
 		screenInterface();
 
+		setMeasuringRange();
+
 		vTaskDelayUntil(&xLastWakeTime, xFrequency/10);
 
 	}
@@ -5999,6 +6191,7 @@ void vTaskUart(void *argument)
 	for (;;) {
 
 		consoleInterface(0);
+		setMeasuringRange();
 
 		vTaskDelayUntil(&xLastWakeTime, xFrequency/10);
 
