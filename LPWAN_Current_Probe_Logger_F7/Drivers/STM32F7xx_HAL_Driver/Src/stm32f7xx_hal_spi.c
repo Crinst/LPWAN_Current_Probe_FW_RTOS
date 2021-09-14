@@ -2230,13 +2230,13 @@ HAL_StatusTypeDef HAL_SPI_TransmitReceive_DMA(SPI_HandleTypeDef *hspi, uint8_t *
   if (hspi->State == HAL_SPI_STATE_BUSY_RX)
   {
     /* Set the SPI Rx DMA Half transfer complete callback */
-    hspi->hdmarx->XferHalfCpltCallback = SPI_DMAHalfReceiveCplt;
+    //hspi->hdmarx->XferHalfCpltCallback = SPI_DMAHalfReceiveCplt;
     hspi->hdmarx->XferCpltCallback     = SPI_DMAReceiveCplt;
   }
   else
   {
     /* Set the SPI Tx/Rx DMA Half transfer complete callback */
-    hspi->hdmarx->XferHalfCpltCallback = SPI_DMAHalfTransmitReceiveCplt;
+    //hspi->hdmarx->XferHalfCpltCallback = SPI_DMAHalfTransmitReceiveCplt;
     hspi->hdmarx->XferCpltCallback     = SPI_DMATransmitReceiveCplt;
   }
 

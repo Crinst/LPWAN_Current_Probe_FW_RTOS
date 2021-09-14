@@ -1,4 +1,4 @@
-u8x8_d_st7565.c:115:9:u8x8_d_st7565_common	32	static
+u8x8_d_st7565.c:115:9:u8x8_d_st7565_common	24	static
 u8x8_d_st7565.c:212:9:u8x8_d_st7565_ea_dogm128	24	static
 u8x8_d_st7565.c:279:9:u8x8_d_st7565_lm6063	24	static
 u8x8_d_st7565.c:403:9:u8x8_d_st7565_64128n	24	static

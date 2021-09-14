@@ -114,21 +114,21 @@ osThreadId_t myTaskUIHandle;
 const osThreadAttr_t myTaskUI_attributes = {
   .name = "myTaskUI",
   .stack_size = 256 * 4,
-  .priority = (osPriority_t) osPriorityNormal1,
+  .priority = (osPriority_t) osPriorityNormal5,
 };
 /* Definitions for myTaskLCD */
 osThreadId_t myTaskLCDHandle;
 const osThreadAttr_t myTaskLCD_attributes = {
   .name = "myTaskLCD",
   .stack_size = 256 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityAboveNormal,
 };
 /* Definitions for myTaskButtons */
 osThreadId_t myTaskButtonsHandle;
 const osThreadAttr_t myTaskButtons_attributes = {
   .name = "myTaskButtons",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityAboveNormal,
 };
 /* Definitions for myTaskUART */
 osThreadId_t myTaskUARTHandle;
@@ -173,7 +173,7 @@ uint8_t isLeftTriggered = 0;
 uint8_t isRightTriggered = 0;
 
 uint32_t previousButtonPress = 0;
-uint32_t buttonPressInterval = 50000;
+uint32_t buttonPressInterval = 150000;
 
 /***********************************************************************************************************/
 /*
@@ -365,7 +365,7 @@ HAL_SPI_StateTypeDef retValueSPI;
 uint32_t spiErrorValue = 0;
 
 #define RB_INPUT_SIZE 131072 //4096
-#define RB_OUTPUT_SIZE 8192
+#define RB_OUTPUT_SIZE 65536
 
 // char buffer for ring buffer with capacity for up to 102 transmission=10ms
 uint8_t inputBuffer [RB_INPUT_SIZE];
@@ -471,29 +471,29 @@ void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi){
 	//HAL_SPI_DMAStop(&hspi3);
 	//HAL_SPI_Abort(&hspi3);
 
-	send_uart("SPI Error callback\n");
+	send_uart2("SPI Error callback\n");
 	sprintf(buffer, "SPI ERROR: %d\n", spiErrorValue);
-	send_uart(buffer);
+	send_uart2(buffer);
 
 	//retValue = HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
 
 	if(retValue == HAL_SPI_STATE_BUSY_RX || retValue == HAL_SPI_STATE_BUSY_TX || retValue == HAL_SPI_STATE_BUSY_TX_RX || retValue == HAL_SPI_STATE_BUSY)
-		send_uart("SPI transfer running\n");
+		send_uart2("SPI transfer running\n");
 	else{
 		if(retValue == HAL_SPI_STATE_READY){
-			send_uart("SPI transfer not running - ready\n");
+			send_uart2("SPI transfer not running - ready\n");
 			//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
 		}
 		if(retValue == HAL_SPI_STATE_RESET){
-			send_uart("SPI transfer not running - reset\n");
+			send_uart2("SPI transfer not running - reset\n");
 			//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
 		}
 		if(retValue == HAL_SPI_STATE_ERROR){
-			send_uart("SPI transfer not running - error\n");
+			send_uart2("SPI transfer not running - error\n");
 			//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
 		}
 		if(retValue == HAL_SPI_STATE_ABORT){
-			send_uart("SPI transfer not running - abort\n");
+			send_uart2("SPI transfer not running - abort\n");
 			//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
 		}
 
@@ -690,7 +690,7 @@ void send_uart2(char *string) {
 	//HAL_UART_Transmit_IT(&huart3, (uint8_t*) string, len); // transmit in non blocking
 	//HAL_UART_Transmit_DMA(&huart7, (uint8_t*) string, len);
 
-	UARTAddToTxBuff2(string, len);
+	UARTAddToTxBuff(string, len);
 
 	// usb test
 	//USBD_CDC_SetTxBuffer(&hUsbDeviceFS, (uint8_t *) string, len);
@@ -703,7 +703,7 @@ void send_uart3(char *string) {
 	//SCB_CleanDCache_by_Addr((uint32_t*)&string[0], len);
 	//HAL_UART_Transmit_DMA(&huart3, (uint8_t*) string, len);
 	//HAL_UART_Transmit_DMA(&huart7, (uint8_t*) string, len);
-	UARTAddToTxBuff(string, len);
+	UARTAddToTxBuff2(string, len);
 
 }
 
@@ -4746,11 +4746,6 @@ void deviceInit(){
 	HAL_GPIO_WritePin(RANGE_SELECT_PIN_AS_NA_PORT, RANGE_SELECT_PIN_AS_NA, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(RANGE_SELECT_PIN_TRANS_NA_PORT, RANGE_SELECT_PIN_TRANS_NA, GPIO_PIN_RESET);
 
-	// USB OTG Power Enable
-	send_uart3("USB OTG POWER - ENABLED\n");
-	HAL_GPIO_WritePin(USB_OTG_POWER_EN_PORT, USB_OTG_POWER_EN_PIN, GPIO_PIN_SET);
-	HAL_Delay(1);
-
 	// OLED init
 	//u8g2_Setup_sh1106_i2c_128x64_noname_2(u8g2, rotation, u8x8_byte_sw_i2c, u8x8_stm32_gpio_and_delay_cb); // [page buffer, size = 256 bytes]
 	//u8g2_Setup_ssd1306_128x64_noname_1(&u8g2, U8G2_R0, u8x8_byte_sw_i2c, u8x8_stm32_gpio_and_delay_cb);
@@ -4813,21 +4808,33 @@ void deviceInit(){
 	 */
 
 	u8g2_DrawStr(&u8g2, 20, 20, "Current logger");
-	u8g2_DrawStr(&u8g2, 20, 40, "Firmware version 1.0.0");
+	u8g2_DrawStr(&u8g2, 20, 40, "Firmware version 2.0.0");
 	u8g2_SendBuffer(&u8g2);
 	u8g2_UpdateDisplay(&u8g2);
 
 	HAL_Delay(1000);
 
+
 	// init uart ring buffers
 	UARTRXInit();
 	UARTTXInit();
+
+	HAL_UART_Transmit_DMA(&huart6, "INIT", 4);
+	HAL_Delay(250);
+	send_uart3("INIT\n");
+
+	//u16* ringData=ringbuff_get_linear_block_read_address(&txRing); // Get pointer to read memory
+	//HAL_UART_Transmit_DMA(&huart6,ringData,txLen); // Start DMA transfer
 
 
 	// initialize RB buffers
 	ringbuff_init(&inputBuffer_RB, inputBuffer, RB_INPUT_SIZE);
 	ringbuff_init(&outputBuffer_RB, outputFormatterBuffer, RB_OUTPUT_SIZE);
 
+	// USB OTG Power Enable
+	send_uart3("USB OTG POWER - ENABLED\n");
+	HAL_GPIO_WritePin(USB_OTG_POWER_EN_PORT, USB_OTG_POWER_EN_PIN, GPIO_PIN_SET);
+	HAL_Delay(1);
 
 	//HAL_ADC_Start_DMA(&hadc1, &adcBuffer, 1);
 	//HAL_ADC_Start_IT(&hadc1);
@@ -4947,7 +4954,7 @@ int main(void)
   SCB_EnableICache();
 
   /* Enable D-Cache---------------------------------------------------------*/
-  SCB_EnableDCache();
+  //SCB_EnableDCache();
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -5039,7 +5046,7 @@ int main(void)
   myTaskLCDHandle = osThreadNew(vTaskLcd, NULL, &myTaskLCD_attributes);
 
   /* creation of myTaskButtons */
-  myTaskButtonsHandle = osThreadNew(vTaskButtons, NULL, &myTaskButtons_attributes);
+  //myTaskButtonsHandle = osThreadNew(vTaskButtons, NULL, &myTaskButtons_attributes);
 
   /* creation of myTaskUART */
   myTaskUARTHandle = osThreadNew(vTaskUart, NULL, &myTaskUART_attributes);
@@ -5867,7 +5874,7 @@ void StartDefaultTask(void *argument)
 	/* Infinite loop */
 	for (;;) {
 
-		HAL_GPIO_TogglePin(LED_BLUE_PORT, LED_BLUE_PIN);
+		HAL_GPIO_TogglePin(LED_GREEN_PORT, LED_GREEN_PIN);
 
 		vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
@@ -5915,14 +5922,12 @@ void vTaskUSB(void *argument)
 void vTaskInputBuffer(void *argument)
 {
   /* USER CODE BEGIN vTaskInputBuffer */
-	send_uart("Task Input Buffer Init\n");
+	send_uart2("Task Input Buffer Init\n");
 
 	portTickType xLastWakeTime;
 	const portTickType xFrequency = 1000;
 
 	xLastWakeTime = xTaskGetTickCount();
-
-	send_uart("Task Input Buffer Init\n");
 
 	uint8_t tempBuffer [128];
 
@@ -5954,19 +5959,25 @@ void vTaskInputBuffer(void *argument)
 	uint16_t displayCounter = 512;
 	uint32_t counterStats = 0;
 
+	uint32_t bufferOverflowCounter = 0;
+
+	uint8_t processedSampleCount = 0;
+
+	uint16_t sampleSize = 0;
+
 	/* Infinite loop */
 	for (;;) {
 
 		//send_uart("Task Input Buffer Cycle\n");
 		currentBufferSize = ringbuff_get_full(&inputBuffer_RB);
 
-		if (counterStats >= 1024) {
+		if (counterStats >= 1024 && isMeasuring == 0) {
 
 			sprintf(charBuffer, "InBuff S: %d\n", currentBufferSize);
-			send_uart(charBuffer);
+			send_uart2(charBuffer);
 
 			sprintf(charBuffer, "	Cnt OK-NOK-SPIs-SPIe-SPIHal %d-%d-%d-%d-%d\n", okCount, errorCount, spiCounter, spiCounterEnd, retValueSPI);
-			send_uart(charBuffer);
+			send_uart2(charBuffer);
 
 			counterStats = 0;
 
@@ -5982,18 +5993,53 @@ void vTaskInputBuffer(void *argument)
 			// read 4 Bytes = 1 measurement
 			ringbuff_read(&inputBuffer_RB, tempBuffer, 40);
 
-			/*
-			 if (tempBuffer[0] == 4)
-			 voltage = (voltage*0.0195*1000000000);
-			 else if (tempBuffer[0] == 2)
-			 voltage = (voltage*0.0195*1000000);
-			 else if (tempBuffer[0] == 1)
-			 voltage = (voltage*0.0195*1000);
-			 */
+			processedSampleCount = 0;
 
+			for (uint8_t i = 0; i < 40/4 ; i++){
+				temp32 = 0;
+
+				measuringNumber++;
+
+				temp32 = (tempBuffer[i*4] << 16) | (tempBuffer[i*4 + 1] << 8) | (tempBuffer[i*4 + 2]);
+				voltage = temp32;
+				voltage = (voltage * 0.0195);
+
+				/*
+				if (tempBuffer[0] == 4)
+					voltage = (voltage*0.0195*1000000000);
+				else if (tempBuffer[0] == 2)
+					voltage = (voltage*0.0195*1000000);
+				else if (tempBuffer[0] == 1)
+					voltage = (voltage*0.0195*1000);
+				*/
+
+				if ((tempBuffer[0] >> 5) == 2)
+					currentValue = (voltage / 1000000000);
+				else if ((tempBuffer[0] >> 5) == 1)
+					currentValue = (voltage / 1000000);
+				else if ((tempBuffer[0] >> 5) == 0)
+					currentValue = (voltage / 1000);
+				else
+					currentValue = (voltage);
+
+				sprintf(charBuffer, "%d %.12f\n", measuringNumber, currentValue);
+				//sampleSize = strlen(charBuffer);
+				//sprintf(charBuffer, "ADC: %d-V: %.2f-C: %6.12f-R: %d\n", temp32, voltage, currentValue, (tempBuffer[i*4] >> 5));
+				//ringbuff_write(&outputBuffer_RB, charBuffer, sampleSize);
+				if(isMeasuring == 1){
+					if (startOfMeasurement == 1){
+						measuringNumber = 0;
+						startOfMeasurement = 0;
+					}
+
+					send_uart3(charBuffer);
+				}
+			}
+
+			/*
 			temp32 = 0;
 
-			if (displayCounter >= 25) {
+			if (displayCounter >= 25 && isMeasuring == 1) {
 				temp32 = (tempBuffer[1] << 16) | (tempBuffer[2] << 8) | (tempBuffer[3]);
 				voltage = temp32;
 				voltage = (voltage * 0.0195);
@@ -6010,11 +6056,12 @@ void vTaskInputBuffer(void *argument)
 				//sprintf(charBuffer, "	ADC: %d-V: %.2f-C: %6.12f\n", temp32, voltage, currentValue);
 				sprintf(charBuffer, "	ADC: %d-V: %.2f-C: %6.12f-R: %d\n", temp32, voltage, currentValue, (tempBuffer[0] >> 5));
 				//sprintf(charBuffer, "	Received Data %d-%d-%d-%d --- ADC VALUE: %d --- Voltage: %6.2f\n", tempBuffer[0], tempBuffer[1], tempBuffer[2], tempBuffer[3], temp32, voltage);
-				send_uart(charBuffer);
+				send_uart3(charBuffer);
 				displayCounter = 0;
 			}
 
 			displayCounter++;
+			*/
 
 		} else {
 			//send_uart("Task Input Buffer NO Data\n");
@@ -6027,19 +6074,19 @@ void vTaskInputBuffer(void *argument)
 				//send_uart("SPI transfer running\n");
 			} else {
 				if (retValue == HAL_SPI_STATE_READY) {
-					send_uart("SPI transfer not running - ready\n");
+					send_uart2("SPI transfer not running - ready\n");
 					//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
 				}
 				if (retValue == HAL_SPI_STATE_RESET) {
-					send_uart("SPI transfer not running - reset\n");
+					send_uart2("SPI transfer not running - reset\n");
 					//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
 				}
 				if (retValue == HAL_SPI_STATE_ERROR) {
-					send_uart("SPI transfer not running - error\n");
+					send_uart2("SPI transfer not running - error\n");
 					//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
 				}
 				if (retValue == HAL_SPI_STATE_ABORT) {
-					send_uart("SPI transfer not running - abort\n");
+					send_uart2("SPI transfer not running - abort\n");
 					//HAL_SPI_TransmitReceive_DMA(&hspi3, spiTxBuffer, spiRxBuffer, 4);
 				}
 
@@ -6066,7 +6113,7 @@ void vTaskInputBuffer(void *argument)
 void vTaskEthernet(void *argument)
 {
   /* USER CODE BEGIN vTaskEthernet */
-	send_uart("Task Ethernet Init\n");
+	send_uart2("Task Ethernet Init\n");
 
 	//MX_LWIP_Init();
 
@@ -6087,7 +6134,7 @@ void vTaskEthernet(void *argument)
 void vTaskUi(void *argument)
 {
   /* USER CODE BEGIN vTaskUi */
-	send_uart("Task UI Init\n");
+	send_uart2("Task UI Init\n");
 
 
 
@@ -6108,7 +6155,7 @@ void vTaskUi(void *argument)
 void vTaskLcd(void *argument)
 {
   /* USER CODE BEGIN vTaskLcd */
-	send_uart("Task LCD Init\n");
+	send_uart2("Task LCD Init\n");
 
 
 	portTickType xLastWakeTime;
@@ -6160,11 +6207,103 @@ void vTaskLcd(void *argument)
 void vTaskButtons(void *argument)
 {
   /* USER CODE BEGIN vTaskButtons */
-	send_uart("Task Buttons Init\n");
+	send_uart2("Task Buttons-Outputbuffer Init\n");
+
+	portTickType xLastWakeTime;
+	const portTickType xFrequency = 1000;
+
+	xLastWakeTime = xTaskGetTickCount();
 
 	/* Infinite loop */
 	for (;;) {
-		osDelay(1);
+
+		//if(ringbuff_get_full(&outputBuffer_RB) >= 256 && isMeasuring == 1 ){
+		if(isMeasuring == 1 ){
+
+			measuringNumber++;
+
+			if (startOfMeasurement == 1) {
+
+				// getting time and date for formatting as name of new logged file
+				//HAL_RTC_GetTime(&hrtc, &Time, FORMAT_BCD);
+				//HAL_RTC_GetDate(&hrtc, &Date, FORMAT_BCD);
+				HAL_RTC_GetTime(&hrtc, &Time, FORMAT_BIN);
+				HAL_RTC_GetDate(&hrtc, &Date, FORMAT_BIN);
+
+				// file name format "20YYMMDD_HHMM" example "20200120_1022"
+				sprintf(loggingFileName, "\n20%2d%2d%2d_%2d%2d.txt\n\n", Date.Year, Date.Month, Date.Date, Time.Hours, Time.Minutes);
+
+				measuringNumber = 0;
+
+				ringbuff_reset(&outputBuffer_RB);
+			}
+
+
+
+			if (settings.isLoggingToConsole == 1) {
+
+				isReadyForNext = 0;
+
+				if (startOfMeasurement == 1) {
+					send_uart3(loggingFileName);
+					send_uart3("\n\n\n");
+				}
+
+				// get position in memory for maximal linear buffer and its size, then copy to uart ring buffer
+				//uint16_t dataToCopy = ringbuff_get_linear_block_read_length(&outputBuffer_RB);
+				//uint16_t* pointerToData = ringbuff_get_linear_block_read_address(&outputBuffer_RB);
+
+				uint16_t dataToCopy = ringbuff_get_full(&outputBuffer_RB);
+				if (dataToCopy >= 4096)
+					dataToCopy = 4096;
+				ringbuff_read(&outputBuffer_RB, buffer4096, dataToCopy);
+
+				UARTAddToTxBuff(buffer4096, dataToCopy);
+
+			}
+
+			if (settings.isLoggingToSD == 1) {
+
+				saveToSD(uartBufferTx);
+
+			}
+
+			if (settings.isLoggingToUSB == 1) {
+
+				// empty
+			}
+
+			if (settings.isLoggingToEthernet == 1) {
+
+				// empty
+			}
+
+			if (startOfMeasurement == 1)
+				startOfMeasurement = 0;
+
+
+			if (endOfMeasurement == 1 && settings.isLoggingToSD == 1) {
+
+				/* Unmount SDCARD */
+
+				fresult = f_mount(NULL, "", 1);
+				if (fresult == FR_OK) {
+					#ifdef DEBUG
+						send_uart3("SD CARD UNMOUNTED successfully...\n");
+					#endif
+				}
+
+				endOfMeasurement == 0;
+
+			}
+
+
+		}
+
+
+
+		vTaskDelayUntil(&xLastWakeTime, xFrequency/10);
+
 	}
   /* USER CODE END vTaskButtons */
 }
@@ -6179,7 +6318,7 @@ void vTaskButtons(void *argument)
 void vTaskUart(void *argument)
 {
   /* USER CODE BEGIN vTaskUart */
-	send_uart("Task UART Init\n");
+	send_uart2("Task UART Init\n");
 
 	portTickType xLastWakeTime;
 	const portTickType xFrequency = 1000;
@@ -6209,7 +6348,7 @@ void vTaskUart(void *argument)
 void vTaskSd(void *argument)
 {
   /* USER CODE BEGIN vTaskSd */
-	send_uart("Task SD Init\n");
+	send_uart2("Task SD Init\n");
 
 	/* Infinite loop */
 	for (;;) {
